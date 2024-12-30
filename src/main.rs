@@ -3,15 +3,32 @@ use std::{fs, ops::Range, path::Path};
 
 pub struct Cpu {
     pc: u32,
+    registers: [u32; 32],
     inter: InterConnect,
 }
 
 impl Cpu {
     pub fn new(inter: InterConnect) -> Self {
+        let registers = const {
+            let mut registers = [0u32; 32];
+            registers[29] = 0x801FFFF0;
+            registers
+        };
+
         Self {
             pc: 0xbfc00000, // Start of the bios
+            registers,
             inter,
         }
+    }
+
+    fn regs(&self, index: u32) -> u32 {
+        self.registers[index as usize]
+    }
+
+    fn set_regs(&mut self, index: u32, value: u32) {
+        self.registers[index as usize] = value;
+        self.registers[0] = 0;
     }
 
     pub fn run_next_instruction(&mut self) {
@@ -21,15 +38,29 @@ impl Cpu {
 
         self.pc = self.pc.wrapping_add(4);
 
-        self.decode_and_execute(instruction);
+        self.decode_and_execute(Instruction(instruction));
     }
 
     pub fn load32(&self, addr: u32) -> u32 {
         self.inter.load32(addr)
     }
 
-    fn decode_and_execute(&mut self, instruction: u32) {
-        panic!("Unhandled instruction {instruction:#x}")
+    fn decode_and_execute(&mut self, instruction: Instruction) {
+        match instruction.function() {
+            0b001111 => self.op_lui(instruction),
+            _ => {
+                panic!("Unhandled instruction {:#x}", instruction.0)
+            }
+        }
+    }
+
+    fn op_lui(&mut self, instruction: Instruction) {
+        let i = instruction.imm();
+        let t = instruction.t();
+
+        let v = i << 16;
+
+        self.set_regs(t, v);
     }
 }
 
@@ -75,6 +106,25 @@ impl InterConnect {
         }
 
         panic!("unhandled fetch32 at addres {addr:#x}");
+    }
+}
+
+struct Instruction(u32);
+
+impl Instruction {
+    #[inline]
+    pub const fn function(&self) -> u32 {
+        self.0 >> 26
+    }
+
+    #[inline]
+    pub const fn t(&self) -> u32 {
+        (self.0 >> 16) & 0x1f
+    }
+
+    #[inline]
+    pub const fn imm(&self) -> u32 {
+        self.0 & 0xffff
     }
 }
 
