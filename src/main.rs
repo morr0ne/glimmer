@@ -22,11 +22,11 @@ impl Cpu {
         }
     }
 
-    fn regs(&self, index: u32) -> u32 {
+    fn reg(&self, index: u32) -> u32 {
         self.registers[index as usize]
     }
 
-    fn set_regs(&mut self, index: u32, value: u32) {
+    fn set_reg(&mut self, index: u32, value: u32) {
         self.registers[index as usize] = value;
         self.registers[0] = 0;
     }
@@ -45,9 +45,15 @@ impl Cpu {
         self.inter.load32(addr)
     }
 
+    pub fn store32(&mut self, addr: u32, value: u32) {
+        self.inter.store32(addr, value)
+    }
+
     fn decode_and_execute(&mut self, instruction: Instruction) {
         match instruction.function() {
             0b001111 => self.op_lui(instruction),
+            0b001101 => self.op_ori(instruction),
+            0b101011 => self.op_sw(instruction),
             _ => {
                 panic!("Unhandled instruction {:#x}", instruction.0)
             }
@@ -60,7 +66,28 @@ impl Cpu {
 
         let v = i << 16;
 
-        self.set_regs(t, v);
+        self.set_reg(t, v);
+    }
+
+    fn op_ori(&mut self, instruction: Instruction) {
+        let i = instruction.imm();
+        let t = instruction.t();
+        let s = instruction.s();
+
+        let v = self.reg(s) | i;
+
+        self.set_reg(t, v);
+    }
+
+    fn op_sw(&mut self, instruction: Instruction) {
+        let i = instruction.imm();
+        let t = instruction.t();
+        let s = instruction.s();
+
+        let addr = self.reg(s).wrapping_add(i);
+        let v = self.reg(t);
+
+        self.store32(addr, v);
     }
 }
 
@@ -117,6 +144,10 @@ impl InterConnect {
 
         panic!("unhandled fetch32 at addres {addr:#x}");
     }
+
+    fn store32(&mut self, addr: u32, value: u32) {
+        todo!()
+    }
 }
 
 struct Instruction(u32);
@@ -130,6 +161,11 @@ impl Instruction {
     #[inline]
     pub const fn t(&self) -> u32 {
         (self.0 >> 16) & 0x1f
+    }
+
+    #[inline]
+    pub const fn s(&self) -> u32 {
+        (self.0 >> 21) & 0x1f
     }
 
     #[inline]
