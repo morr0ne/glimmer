@@ -83,8 +83,18 @@ impl Bios {
     }
 
     pub fn load32(&self, offset: u32) -> u32 {
+        let start = offset as usize;
+        let end = start + 4;
+
+        if end > self.data.len() {
+            panic!(
+                "Attempted to read beyond BIOS memory bounds: offset {:#x}",
+                offset
+            );
+        }
+
         u32::from_le_bytes(
-            self.data[offset as usize..4]
+            self.data[start..end]
                 .try_into()
                 .expect("Failed to read offset bytes"),
         )
