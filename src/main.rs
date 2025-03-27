@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use std::{fs, ops::Range, path::Path};
 
 pub struct Cpu {
